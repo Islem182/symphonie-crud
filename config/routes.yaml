@@ -1,5 +1,9 @@
+homepage: 
+    path: / 
+    controller: App\Controller\IndexController::home
+
 controllers:
-    resource:
-        path: ../src/Controller/
-        namespace: App\Controller
-    type: attribute
+    resource: '../src/Controller/'
+    type: annotation
+
+
