@@ -2,123 +2,174 @@
 namespace App\Controller;
 
 use App\Entity\Article;
+use App\Form\ArticleType;
+use App\Entity\Category;
+use App\Form\CategoryType;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpFoundation\Request; // Ajout de l'import correct pour Request
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\Form\Extension\Core\Type\TextType; // Ajout des types de formulaire
-use Symfony\Component\Form\Extension\Core\Type\SubmitType;
+use App\Entity\PriceSearch; // Make sure to import PriceSearch
+use App\Form\PriceSearchType; 
+use App\Entity\CategorySearch; 
+use App\Form\CategorySearchType; 
 
 class IndexController extends AbstractController 
-{ 
-    /**
-     * @Route("/article/save", name="article_save")
-     */
-    public function save(EntityManagerInterface $entityManager) {
-        // Création d'un nouvel article
+{
+    #[Route('/article/save', name: 'article_save')]
+    public function save(EntityManagerInterface $entityManager): Response {
+        // Create a new article
         $article = new Article();
         $article->setNom('Article 1');
         $article->setPrix(1000);
-    
-        // Enregistrement de l'article dans la base de données
+
+        // Save the article in the database
         $entityManager->persist($article);
         $entityManager->flush();
-    
-        return new Response('Article enregistré avec ID '.$article->getId());
+
+        return new Response('Article saved with ID ' . $article->getId());
     }
 
-    /**
-     * @Route("/", name="article_list")
-     */
-    public function home(EntityManagerInterface $entityManager) 
-    { 
-        // Récupérer tous les articles de la base de données
-        $articles = $entityManager->getRepository(Article::class)->findAll();
-        
-        return $this->render('articles/index.html.twig', ['articles' => $articles]);
-    }
-
-    /**
-     * @Route("/article/new", name="new_article", methods={"GET", "POST"})
-     */
-    public function new(Request $request, EntityManagerInterface $entityManager) {
-        $article = new Article();
-        $form = $this->createFormBuilder($article)
-            ->add('nom', TextType::class)
-            ->add('prix', TextType::class)
-            ->add('save', SubmitType::class, ['label' => 'Créer'])
-            ->getForm();
-
+    #[Route('/', name: 'article_list')]
+    public function home(Request $request, EntityManagerInterface $entityManager): Response
+    {
+        $propertySearch = new PropertySearch();
+        $form = $this->createForm(PropertySearchType::class, $propertySearch);
         $form->handleRequest($request);
 
+        $articles = [];
         if ($form->isSubmitted() && $form->isValid()) {
-            $article = $form->getData();
-
-            $entityManager->persist($article);
-            $entityManager->flush();
-
-            return $this->redirectToRoute('article_list');
+            $nom = $propertySearch->getNom();
+            $articleRepository = $entityManager->getRepository(Article::class);
+            $articles = $nom ? $articleRepository->findBy(['nom' => $nom]) : $articleRepository->findAll();
         }
 
-        return $this->render('articles/new.html.twig', ['form' => $form->createView()]);
+        return $this->render('articles/index.html.twig', [
+            'form' => $form->createView(),
+            'articles' => $articles,
+        ]);
     }
 
-    /**
- * @Route("/article/{id}", name="article_show")
- */
-public function show($id, EntityManagerInterface $entityManager) {
-    $article = $entityManager->getRepository(Article::class)->find($id);
+    #[Route('/article/new', name: 'new_article', methods: ['GET', 'POST'])]
+    public function new(Request $request, EntityManagerInterface $entityManager): Response { 
+        $article = new Article(); 
+        $form = $this->createForm(ArticleType::class, $article); 
+        $form->handleRequest($request); 
 
-    return $this->render('articles/show.html.twig', [
-        'article' => $article
-    ]);
-}
+        if ($form->isSubmitted() && $form->isValid()) { 
+            $entityManager->persist($article); 
+            $entityManager->flush(); 
 
-/**
- * @Route("/article/edit/{id}", name="edit_article", methods={"GET", "POST"})
- */
-public function edit(Request $request, EntityManagerInterface $entityManager, $id) {
-    $article = $entityManager->getRepository(Article::class)->find($id);
+            return $this->redirectToRoute('article_list'); 
+        }
 
-    $form = $this->createFormBuilder($article)
-        ->add('nom', TextType::class)
-        ->add('prix', TextType::class)
-        ->add('save', SubmitType::class, [
-            'label' => 'Modifier'
-        ])->getForm();
-
-    $form->handleRequest($request);
-
-    if ($form->isSubmitted() && $form->isValid()) {
-        $entityManager->flush();
-        return $this->redirectToRoute('article_list');
+        return $this->render('articles/new.html.twig', ['form' => $form->createView()]); 
     }
 
-    return $this->render('articles/edit.html.twig', [
-        'form' => $form->createView()
-    ]);
-}
+    #[Route('/article/edit/{id}', name: 'edit_article', methods: ['GET', 'POST'])]
+    public function edit(Request $request, int $id, EntityManagerInterface $entityManager): Response { 
+        $article = $entityManager->getRepository(Article::class)->find($id);
 
+        if (!$article) {
+            throw $this->createNotFoundException('Article not found.');
+        }
 
-/**
- * @Route("/article/delete/{id}", name="delete_article", methods={"DELETE"})
- */
-public function delete(Request $request, EntityManagerInterface $entityManager, $id) {
-    $article = $entityManager->getRepository(Article::class)->find($id);
+        $form = $this->createForm(ArticleType::class, $article); 
+        $form->handleRequest($request); 
 
-    if ($article) {
-        // Vérification du token CSRF
-        if ($this->isCsrfTokenValid('delete'.$article->getId(), $request->request->get('_token'))) {
+        if ($form->isSubmitted() && $form->isValid()) { 
+            $entityManager->flush(); 
+            return $this->redirectToRoute('article_list'); 
+        } 
+
+        return $this->render('articles/edit.html.twig', ['form' => $form->createView()]); 
+    }
+
+    #[Route('/article/{id}', name: 'article_show')]
+    public function show(int $id, EntityManagerInterface $entityManager): Response {
+        $article = $entityManager->getRepository(Article::class)->find($id);
+
+        if (!$article) {
+            throw $this->createNotFoundException('Article not found.');
+        }
+
+        return $this->render('articles/show.html.twig', ['article' => $article]);
+    }
+
+    #[Route('/article/delete/{id}', name: 'delete_article', methods: ['DELETE'])]
+    public function delete(Request $request, EntityManagerInterface $entityManager, int $id): Response {
+        $article = $entityManager->getRepository(Article::class)->find($id);
+
+        if (!$article) {
+            throw $this->createNotFoundException('Article not found.');
+        }
+
+        // Check CSRF token validity
+        if ($this->isCsrfTokenValid('delete' . $article->getId(), $request->request->get('_token'))) {
             $entityManager->remove($article);
             $entityManager->flush();
         }
+
+        return $this->redirectToRoute('article_list');
     }
 
-    return $this->redirectToRoute('article_list');
-}
+    #[Route('/category/newCat', name: 'new_category')]
+    public function newCategory(Request $request, EntityManagerInterface $entityManager): Response {
+        $category = new Category();
+        $form = $this->createForm(CategoryType::class, $category);
+        $form->handleRequest($request);
 
+        if ($form->isSubmitted() && $form->isValid()) {
+            $entityManager->persist($category);
+            $entityManager->flush();
 
+            return $this->redirectToRoute('article_list');  // Redirect to the article list route
+        }
 
+        return $this->render('articles/newCategory.html.twig', [
+            'form' => $form->createView(),
+        ]);
+    }
 
+    #[Route('/art_cat', name: 'article_par_cat')]
+    public function articlesParCategorie(Request $request, EntityManagerInterface $entityManager) { 
+        $categorySearch = new CategorySearch(); 
+        $form = $this->createForm(CategorySearchType::class, $categorySearch); 
+        $form->handleRequest($request); 
+
+        $articles = []; 
+        if ($form->isSubmitted() && $form->isValid()) { 
+            $category = $categorySearch->getCategory(); 
+            if ($category) { 
+                $articles = $category->getArticles(); 
+            } else { 
+                $articles = $entityManager->getRepository(Article::class)->findAll(); 
+            } 
+        }
+
+        return $this->render('articles/articlesParCategorie.html.twig', [
+            'form' => $form->createView(), 
+            'articles' => $articles
+        ]); 
+    }
+
+    #[Route('/art_prix', name: 'article_par_prix')]
+    public function articlesParPrix(Request $request, EntityManagerInterface $entityManager) {
+        $priceSearch = new PriceSearch();
+        $form = $this->createForm(PriceSearchType::class, $priceSearch);
+        $form->handleRequest($request);
+        
+        $articles = [];
+        if ($form->isSubmitted() && $form->isValid()) {
+            $minPrice = $priceSearch->getMinPrice();
+            $maxPrice = $priceSearch->getMaxPrice();
+            $articles = $entityManager->getRepository(Article::class)->findByPriceRange($minPrice, $maxPrice);
+        }
+
+        return $this->render('articles/articlesParPrix.html.twig', [
+            'form' => $form->createView(),
+            'articles' => $articles,
+        ]);
+    }
 }

@@ -3,13 +3,26 @@
 {% block title %}Liste des Articles{% endblock %}
 
 {% block body %}
+
+{{ form_start(form) }}
+<div class="form-row align-items-end">
+    <div class="col">
+        {{ form_row(form.nom) }}
+    </div>
+    <div class="col">
+        <button type="submit" class="btn btn-success">Rechercher</button>
+    </div>
+</div>
+{{ form_end(form) }}
+
 {% if articles %}
     <table id="articles" class="table table-striped">
         <thead>
             <tr>
-                <th>Nom</th>
-                <th>Prix</th>
-                <th>Actions</th>
+                <th>Nom</th> 
+                <th>Prix</th> 
+                <th>Catégorie</th> 
+                <th>Actions</th> 
             </tr>
         </thead>
         <tbody>
@@ -17,22 +30,16 @@
                 <tr>
                     <td>{{ article.nom }}</td>
                     <td>{{ article.prix }}</td>
-                   
-                <td>
-    <a href="/article/{{ article.id }}" class="btn btn-dark">Détails</a>
-    <a href="/article/edit/{{ article.id }}" class="btn btn-dark">Modifier</a>
-    
-   <form action="{{ path('delete_article', {'id': article.id}) }}" method="post" style="display:inline;">
-    <input type="hidden" name="_method" value="DELETE">
-    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ article.id) }}">
-    <button type="submit" class="btn btn-danger" onclick="return confirm('Etes-vous sûr de supprimer cet article?');">Supprimer</button>
-</form>
-
-
-
-</td>
-
-
+                    <td>{{ article.category.titre }}</td>
+                    <td>
+                        <a href="{{ path('article_show', {'id': article.id}) }}" class="btn btn-dark">Détails</a>
+                        <a href="{{ path('edit_article', {'id': article.id}) }}" class="btn btn-dark">Modifier</a>
+                        <form action="{{ path('delete_article', {'id': article.id}) }}" method="post" style="display:inline;">
+                            <input type="hidden" name="_method" value="DELETE">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ article.id) }}">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Etes-vous sûr de supprimer cet article?');">Supprimer</button>
+                        </form>
+                    </td>
                 </tr>
             {% endfor %}
         </tbody>
